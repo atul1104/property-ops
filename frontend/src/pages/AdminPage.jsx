@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTickets, updateTicket, deleteTicket } from '../store/slices/ticketSlice';
+import { fetchTickets, updateTicket, deleteTicket, retriageTicket } from '../store/slices/ticketSlice';
 import { fetchDocuments } from '../store/slices/documentSlice';
 import { toast } from 'react-hot-toast';
 import DocumentUpload from '../components/DocumentUpload';
-import { Loader2, Trash2, RefreshCw, ShieldCheck, FileText } from 'lucide-react';
+import { Loader2, Trash2, RefreshCw, ShieldCheck, FileText, Sparkles } from 'lucide-react';
 
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
@@ -40,6 +40,17 @@ export default function AdminPage() {
       toast.success(`Ticket status updated to ${status}`);
     } else {
       toast.error(result.payload || 'Update failed');
+    }
+  };
+
+  const handleRetriage = async (ticket) => {
+    setUpdating(ticket.id);
+    const result = await dispatch(retriageTicket(ticket.id));
+    setUpdating(null);
+    if (retriageTicket.fulfilled.match(result)) {
+      toast.success(`AI triage complete: ${result.payload.priority} · ${result.payload.aiTag}`);
+    } else {
+      toast.error(result.payload || 'Re-triage failed');
     }
   };
 
@@ -144,13 +155,23 @@ export default function AdminPage() {
                           {new Date(ticket.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleDelete(ticket.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete ticket"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleRetriage(ticket)}
+                              disabled={updating === ticket.id}
+                              className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-40"
+                              title="Re-run AI triage"
+                            >
+                              <Sparkles size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(ticket.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete ticket"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

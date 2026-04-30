@@ -78,4 +78,21 @@ const deleteTicket = async (req, res) => {
   res.status(204).send();
 };
 
-module.exports = { getTickets, createTicket, updateTicket, deleteTicket };
+const retriageTicket = async (req, res) => {
+  const { id } = req.params;
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+  const triage = await triageTicket(ticket.title, ticket.description);
+
+  const updated = await prisma.ticket.update({
+    where: { id },
+    data: { priority: triage.priority, aiTag: triage.tag },
+    include: { user: { select: { email: true } } },
+  });
+
+  res.json(updated);
+};
+
+module.exports = { getTickets, createTicket, updateTicket, deleteTicket, retriageTicket };

@@ -28,6 +28,15 @@ export const updateTicket = createAsyncThunk('tickets/update', async ({ id, ...b
   }
 });
 
+export const retriageTicket = createAsyncThunk('tickets/retriage', async (id, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post(`/tickets/${id}/retriage`);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.error || 'Re-triage failed');
+  }
+});
+
 export const deleteTicket = createAsyncThunk('tickets/delete', async (id, { rejectWithValue }) => {
   try {
     await api.delete(`/tickets/${id}`);
@@ -59,7 +68,13 @@ const ticketSlice = createSlice({
       .addCase(deleteTicket.fulfilled, (state, { payload }) => {
         state.items = state.items.filter((t) => t.id !== payload);
       })
-      .addCase(deleteTicket.rejected, (state, { payload }) => { state.error = payload; });
+      .addCase(deleteTicket.rejected, (state, { payload }) => { state.error = payload; })
+
+      .addCase(retriageTicket.fulfilled, (state, { payload }) => {
+        const idx = state.items.findIndex((t) => t.id === payload.id);
+        if (idx !== -1) state.items[idx] = payload;
+      })
+      .addCase(retriageTicket.rejected, (state, { payload }) => { state.error = payload; });
   },
 });
 

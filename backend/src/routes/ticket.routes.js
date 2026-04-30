@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
-const { getTickets, createTicket, updateTicket, deleteTicket } = require('../controllers/ticket.controller');
+const { getTickets, createTicket, updateTicket, deleteTicket, retriageTicket } = require('../controllers/ticket.controller');
 
 /**
  * @swagger
@@ -99,5 +99,22 @@ router.patch('/:id', authenticate, requireAdmin, updateTicket);
  *         description: Deleted
  */
 router.delete('/:id', authenticate, requireAdmin, deleteTicket);
+
+/**
+ * @swagger
+ * /tickets/{id}/retriage:
+ *   post:
+ *     summary: Re-run AI triage on an existing ticket (admin only)
+ *     tags: [Tickets]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Updated ticket with new AI priority and tag
+ */
+router.post('/:id/retriage', authenticate, requireAdmin, retriageTicket);
 
 module.exports = router;
