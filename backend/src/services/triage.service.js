@@ -2,7 +2,7 @@ const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 
 // responseMimeType forces Gemini to emit only valid JSON — no markdown, no prose
 const model = new ChatGoogleGenerativeAI({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-2.5-flash-lite',
   apiKey: process.env.GEMINI_API_KEY,
   temperature: 0,
   maxOutputTokens: 512,
