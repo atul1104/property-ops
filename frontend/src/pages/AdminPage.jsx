@@ -6,7 +6,9 @@ import { toast } from 'react-hot-toast';
 import DocumentUpload from '../components/DocumentUpload';
 import { Loader2, Trash2, RefreshCw, ShieldCheck, FileText, Sparkles } from 'lucide-react';
 
-const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+const STATUSES    = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+const PRIORITIES  = ['URGENT', 'ROUTINE', 'COSMETIC'];
+const AI_TAGS     = ['Plumbing', 'Electrical', 'HVAC', 'Structural', 'Pest', 'Appliance', 'Other'];
 
 const statusStyles = {
   OPEN:        'bg-blue-100 text-blue-700',
@@ -16,9 +18,9 @@ const statusStyles = {
 };
 
 const priorityStyles = {
-  URGENT:   'text-red-600 font-semibold',
-  ROUTINE:  'text-amber-600',
-  COSMETIC: 'text-teal-600',
+  URGENT:   'bg-red-50 text-red-600',
+  ROUTINE:  'bg-amber-50 text-amber-600',
+  COSMETIC: 'bg-teal-50 text-teal-600',
 };
 
 export default function AdminPage() {
@@ -32,12 +34,13 @@ export default function AdminPage() {
     dispatch(fetchDocuments());
   }, [dispatch]);
 
-  const handleStatusChange = async (ticket, status) => {
+  const handleUpdate = async (ticket, changes) => {
     setUpdating(ticket.id);
-    const result = await dispatch(updateTicket({ id: ticket.id, status }));
+    const result = await dispatch(updateTicket({ id: ticket.id, ...changes }));
     setUpdating(null);
     if (updateTicket.fulfilled.match(result)) {
-      toast.success(`Ticket status updated to ${status}`);
+      const field = Object.keys(changes)[0];
+      toast.success(`Ticket ${field} updated to ${Object.values(changes)[0]}`);
     } else {
       toast.error(result.payload || 'Update failed');
     }
@@ -129,18 +132,46 @@ export default function AdminPage() {
                           <p className="text-xs text-gray-400 truncate">{ticket.description}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={priorityStyles[ticket.priority] || 'text-gray-400'}>
-                            {ticket.priority || '—'}
-                          </span>
+                          {updating === ticket.id ? (
+                            <Loader2 size={14} className="animate-spin text-gray-400" />
+                          ) : (
+                            <select
+                              value={ticket.priority || ''}
+                              onChange={(e) => handleUpdate(ticket, { priority: e.target.value })}
+                              className={`text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-brand-500 ${
+                                priorityStyles[ticket.priority] || 'bg-gray-50 text-gray-400'
+                              }`}
+                            >
+                              <option value="" disabled>—</option>
+                              {PRIORITIES.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          )}
                         </td>
-                        <td className="px-4 py-3 text-gray-500">{ticket.aiTag || '—'}</td>
+                        <td className="px-4 py-3">
+                          {updating === ticket.id ? (
+                            <Loader2 size={14} className="animate-spin text-gray-400" />
+                          ) : (
+                            <select
+                              value={ticket.aiTag || ''}
+                              onChange={(e) => handleUpdate(ticket, { aiTag: e.target.value })}
+                              className="text-xs text-gray-600 px-2 py-1 rounded-full border-0 bg-gray-50 cursor-pointer focus:ring-2 focus:ring-brand-500"
+                            >
+                              <option value="" disabled>—</option>
+                              {AI_TAGS.map((t) => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {updating === ticket.id ? (
                             <Loader2 size={16} className="animate-spin text-gray-400" />
                           ) : (
                             <select
                               value={ticket.status}
-                              onChange={(e) => handleStatusChange(ticket, e.target.value)}
+                              onChange={(e) => handleUpdate(ticket, { status: e.target.value })}
                               className={`text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-brand-500 ${
                                 statusStyles[ticket.status] || ''
                               }`}
