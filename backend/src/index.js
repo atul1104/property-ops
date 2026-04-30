@@ -13,12 +13,26 @@ const chatRoutes = require('./routes/chat.routes');
 
 const app = express();
 
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true,
-  })
-);
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.CLIENT_URL, // e.g. https://spontaneous-taffy-323767.netlify.app
+].filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow non-browser tools (curl/postman) with no Origin header
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
