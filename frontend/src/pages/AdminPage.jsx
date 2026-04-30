@@ -43,16 +43,16 @@ export default function AdminPage() {
     }
   };
 
-  const handleRetriage = async (ticket) => {
-    setUpdating(ticket.id);
-    const result = await dispatch(retriageTicket(ticket.id));
-    setUpdating(null);
-    if (retriageTicket.fulfilled.match(result)) {
-      toast.success(`AI triage complete: ${result.payload.priority} · ${result.payload.aiTag}`);
-    } else {
-      toast.error(result.payload || 'Re-triage failed');
-    }
-  };
+  // const handleRetriage = async (ticket) => {
+  //   setUpdating(ticket.id);
+  //   const result = await dispatch(retriageTicket(ticket.id));
+  //   setUpdating(null);
+  //   if (retriageTicket.fulfilled.match(result)) {
+  //     toast.success(`AI triage complete: ${result.payload.priority} · ${result.payload.aiTag}`);
+  //   } else {
+  //     toast.error(result.payload || 'Re-triage failed');
+  //   }
+  // };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Permanently delete this ticket?')) return;
@@ -156,14 +156,14 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
-                            <button
+                            {/* <button
                               onClick={() => handleRetriage(ticket)}
                               disabled={updating === ticket.id}
                               className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-40"
                               title="Re-run AI triage"
                             >
                               <Sparkles size={14} />
-                            </button>
+                            </button> */}
                             <button
                               onClick={() => handleDelete(ticket.id)}
                               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
