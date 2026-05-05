@@ -19,8 +19,9 @@ export default function ChatPage() {
   const { items: docs } = useSelector((s) => s.documents);
   const [input, setInput] = useState('');
   const [selectedDocId, setSelectedDocId] = useState('');
-const bottomRef = useRef(null);
+  const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const abortRef = useRef(null);
 
   const vectorizedDocs = docs.filter((d) => d.vectorized);
 
@@ -42,9 +43,13 @@ const bottomRef = useRef(null);
       : '/api';
     const token = localStorage.getItem('token');
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const response = await fetch(`${baseUrl}/chat/stream`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -82,6 +87,7 @@ const bottomRef = useRef(null);
         }
       }
     } catch (err) {
+      if (err.name === 'AbortError') return;
       dispatch(streamingError(err.message || 'Stream failed'));
       toast.error(err.message || 'Stream failed');
     }
@@ -113,7 +119,7 @@ const bottomRef = useRef(null);
         </div>
         {messages.length > 0 && (
           <button
-            onClick={() => dispatch(clearChat())}
+            onClick={() => { abortRef.current?.abort(); dispatch(clearChat()); }}
             className="btn-secondary text-xs"
             title="Clear conversation"
           >

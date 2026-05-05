@@ -33,6 +33,7 @@ const chatSlice = createSlice({
       state.messages = [];
       state.sessionId = null;
       state.error = null;
+      state.loading = false;
       state.streaming = false;
     },
     streamingStart(state, { payload: { question, documentId } }) {
