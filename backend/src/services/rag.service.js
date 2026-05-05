@@ -39,7 +39,11 @@ Do NOT answer it — only rephrase if needed, otherwise return it unchanged.`,
 const RAG_PROMPT = ChatPromptTemplate.fromMessages([
   [
     'system',
-    `You are a helpful property management assistant. Use only the lease document excerpts below to answer the tenant's question precisely. Cite relevant clause numbers or section headings when visible. If the answer is not in the context, say "I couldn't find that information in your lease documents."
+    `You are a helpful property management assistant. Use the lease document excerpts below to answer the tenant's question. Cite relevant clause numbers or section headings when visible.
+
+If the tenant provides personal figures (rent amount, payment date, number of days late, etc.), apply the lease policy to those figures and calculate a specific answer for them.
+
+If the required policy is not in the context at all, say "I couldn't find that information in your lease documents."
 
 Keep your answer under {max_words} words. If the full answer would exceed that, summarize the key points clearly without omitting critical facts or changing the meaning.
 
