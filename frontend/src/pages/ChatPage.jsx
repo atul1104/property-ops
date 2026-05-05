@@ -104,9 +104,9 @@ export default function ChatPage() {
 
   const selectedDoc = vectorizedDocs.find((d) => d.id === selectedDocId);
   const shortName = selectedDoc
-    ? shortName.length > 20
-      ? shortName.slice(0, 20) + '…'
-      : shortName
+    ? selectedDoc.filename.length > 20
+      ? selectedDoc.filename.slice(0, 20) + '…'
+      : selectedDoc.filename
     : null;
 
   return (
