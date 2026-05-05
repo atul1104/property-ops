@@ -103,6 +103,11 @@ export default function ChatPage() {
   };
 
   const selectedDoc = vectorizedDocs.find((d) => d.id === selectedDocId);
+  const shortName = selectedDoc
+    ? shortName.length > 20
+      ? shortName.slice(0, 20) + '…'
+      : shortName
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-4rem)] flex flex-col">
@@ -167,7 +172,7 @@ export default function ChatPage() {
             <MessageSquare size={48} strokeWidth={1} />
             <div>
               <p className="font-medium text-gray-600">
-                {selectedDoc ? `Asking about: ${selectedDoc.filename}` : 'Start by asking about your lease'}
+                {selectedDoc ? `Asking about: ${shortName}` : 'Start by asking about your lease'}
               </p>
               <p className="text-sm mt-1">Try one of the suggestions below</p>
             </div>
@@ -194,7 +199,7 @@ export default function ChatPage() {
             </div>
             <div className="px-4 py-3 bg-white border border-gray-200 rounded-2xl rounded-tl-sm text-sm text-gray-500 shadow-sm">
               {selectedDoc
-                ? `Searching "${selectedDoc.filename}"…`
+                ? `Searching "${shortName}"…`
                 : 'Searching your lease documents…'}
             </div>
           </div>
@@ -209,7 +214,7 @@ export default function ChatPage() {
           className="input flex-1 resize-none h-12 py-3 leading-normal"
           placeholder={
             selectedDoc
-              ? `Ask about "${selectedDoc.filename}"… (Enter to send)`
+              ? `Ask about "${shortName}"… (Enter to send)`
               : 'Ask about your lease… (Enter to send)'
           }
           value={input}
