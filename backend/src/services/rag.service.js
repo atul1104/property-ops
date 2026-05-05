@@ -1,7 +1,9 @@
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
 const { QdrantVectorStore } = require('@langchain/qdrant');
+const { createRetrievalChain } = require('langchain/chains/retrieval');
 const { createHistoryAwareRetriever } = require('langchain/chains/history_aware_retriever');
+const { createStuffDocumentsChain } = require('langchain/chains/combine_documents');
 const { ChatPromptTemplate, MessagesPlaceholder } = require('@langchain/core/prompts');
 const { HumanMessage, AIMessage } = require('@langchain/core/messages');
 const { MultiQueryRetriever } = require('langchain/retrievers/multi_query');
@@ -32,29 +34,19 @@ Do NOT answer it — only rephrase if needed, otherwise return it unchanged.`,
   ['human', '{input}'],
 ]);
 
-// Pass 1 — extract only facts relevant to the question from retrieved chunks
-const VERIFY_PROMPT = ChatPromptTemplate.fromMessages([
+const RAG_PROMPT = ChatPromptTemplate.fromMessages([
   [
     'system',
-    `You are a fact extractor for a property management assistant.
-Given the lease document excerpts and the tenant's question, extract ONLY the specific facts, rules, figures, clause numbers, and deadlines that are directly relevant to answering the question.
-Be precise: include exact percentages, dollar amounts, day counts, and section references.
-If the excerpts contain no information relevant to the question, respond with exactly: INSUFFICIENT_CONTEXT`,
-  ],
-  ['human', 'Lease excerpts:\n{context}\n\nQuestion: {question}'],
-]);
+    `You are a helpful property management assistant. Use the lease document excerpts below to answer the tenant's question. Cite relevant clause numbers or section headings when visible.
 
-// Pass 2 — generate the final answer from verified facts only
-const ANSWER_PROMPT = ChatPromptTemplate.fromMessages([
-  [
-    'system',
-    `You are a helpful property management assistant. Today's date is {current_date}.
-Use ONLY the verified lease facts below to answer the tenant's question precisely.
-If the tenant provides personal figures (rent amount, payment date, number of days late, etc.), apply the lease policy from the facts to calculate a specific answer.
-Keep your answer under {max_words} words. If longer, summarize without omitting critical facts.
+If the tenant provides personal figures (rent amount, payment date, number of days late, etc.), apply the lease policy to those figures and calculate a specific answer for them.
 
-Verified lease facts:
-{verified_facts}`,
+If the required policy is not in the context at all, say "I couldn't find that information in your lease documents."
+
+Keep your answer under {max_words} words. If the full answer would exceed that, summarize the key points clearly without omitting critical facts or changing the meaning.
+
+Context:
+{context}`,
   ],
   new MessagesPlaceholder('chat_history'),
   ['human', '{input}'],
@@ -67,17 +59,6 @@ const formatHistory = (history = []) =>
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => (m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content)));
 
-const docsToText = (docs) =>
-  docs.map((d, i) => `[Excerpt ${i + 1}]\n${d.pageContent}`).join('\n\n');
-
-// Safely extract text from an AIMessage or AIMessageChunk
-const chunkText = (chunk) =>
-  typeof chunk.content === 'string'
-    ? chunk.content
-    : Array.isArray(chunk.content)
-    ? chunk.content.map((c) => c.text ?? '').join('')
-    : '';
-
 const COMPLEX_MARKERS = [' and ', 'also', 'additionally', 'compare', 'difference', 'versus', ' vs ', 'what if'];
 
 const isComplexQuestion = (question) => {
@@ -86,6 +67,11 @@ const isComplexQuestion = (question) => {
   return COMPLEX_MARKERS.some((m) => lower.includes(m));
 };
 
+/**
+ * Returns an appropriately configured retriever:
+ *   - Simple questions → plain MMR retriever (k=3, no extra LLM call)
+ *   - Complex questions → MultiQueryRetriever wrapping MMR (k=6, 3 query variants)
+ */
 const buildRetriever = (vectorStore, question) => {
   const complex = isComplexQuestion(question);
   const k = complex ? 6 : 3;
@@ -107,23 +93,6 @@ const buildRetriever = (vectorStore, question) => {
   });
 };
 
-/**
- * Pass 1: runs the verify prompt against retrieved docs.
- * Returns the extracted facts string, or null if the context is insufficient.
- */
-const extractVerifiedFacts = async (question, docs) => {
-  if (docs.length === 0) return null;
-  const result = await VERIFY_PROMPT.pipe(llm).invoke({
-    context: docsToText(docs),
-    question,
-  });
-  const text = chunkText(result).trim();
-  return text.startsWith('INSUFFICIENT_CONTEXT') ? null : text;
-};
-
-const currentDate = () =>
-  new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
 // ── Main export ───────────────────────────────────────────────────────────────
 
 const queryDocuments = async (question, documentId = null, history = [], maxWords = 200) => {
@@ -134,21 +103,30 @@ const queryDocuments = async (question, documentId = null, history = [], maxWord
   });
 
   const chat_history = formatHistory(history);
-  const sharedArgs = { input: question, chat_history, max_words: maxWords, current_date: currentDate() };
+  const documentChain = await createStuffDocumentsChain({ llm, prompt: RAG_PROMPT });
 
   // ── Single-document mode ─────────────────────────────────────────────────
   if (documentId) {
     const candidates = await vectorStore.similaritySearch(question, 60);
-    const docs = candidates.filter((d) => d.metadata?.documentId === documentId).slice(0, 6);
-    const sources = docs.map((d) => ({ content: d.pageContent.slice(0, 300), metadata: d.metadata }));
+    const context = candidates
+      .filter((doc) => doc.metadata?.documentId === documentId)
+      .slice(0, 6);
 
-    const verifiedFacts = await extractVerifiedFacts(question, docs);
-    if (!verifiedFacts) {
-      return { answer: "I couldn't find that information in your lease documents.", sources: [] };
+    if (context.length === 0) {
+      return {
+        answer: "I couldn't find relevant content in that document for your question.",
+        sources: [],
+      };
     }
 
-    const result = await ANSWER_PROMPT.pipe(llm).invoke({ ...sharedArgs, verified_facts: verifiedFacts });
-    return { answer: chunkText(result), sources };
+    const answer = await documentChain.invoke({ input: question, context, chat_history, max_words: maxWords });
+    return {
+      answer,
+      sources: context.map((doc) => ({
+        content: doc.pageContent.slice(0, 300),
+        metadata: doc.metadata,
+      })),
+    };
   }
 
   // ── All-documents mode ────────────────────────────────────────────────────
@@ -158,19 +136,20 @@ const queryDocuments = async (question, documentId = null, history = [], maxWord
     rephrasePrompt: CONTEXTUALIZE_PROMPT,
   });
 
-  // Step 1: retrieve
-  const docs = await historyAwareRetriever.invoke({ input: question, chat_history });
-  const sources = docs.map((d) => ({ content: d.pageContent.slice(0, 300), metadata: d.metadata }));
+  const retrievalChain = await createRetrievalChain({
+    retriever: historyAwareRetriever,
+    combineDocsChain: documentChain,
+  });
 
-  // Step 2: verify
-  const verifiedFacts = await extractVerifiedFacts(question, docs);
-  if (!verifiedFacts) {
-    return { answer: "I couldn't find that information in your lease documents.", sources: [] };
-  }
+  const result = await retrievalChain.invoke({ input: question, chat_history, max_words: maxWords });
 
-  // Step 3: answer
-  const result = await ANSWER_PROMPT.pipe(llm).invoke({ ...sharedArgs, verified_facts: verifiedFacts });
-  return { answer: chunkText(result), sources };
+  return {
+    answer: result.answer,
+    sources: (result.context || []).map((doc) => ({
+      content: doc.pageContent.slice(0, 300),
+      metadata: doc.metadata,
+    })),
+  };
 };
 
 // ── Streaming export ──────────────────────────────────────────────────────────
@@ -183,24 +162,29 @@ async function* streamQueryDocuments(question, documentId = null, history = [], 
   });
 
   const chat_history = formatHistory(history);
-  const sharedArgs = { input: question, chat_history, max_words: maxWords, current_date: currentDate() };
+  const documentChain = await createStuffDocumentsChain({ llm, prompt: RAG_PROMPT });
 
   // ── Single-document mode ─────────────────────────────────────────────────
   if (documentId) {
     const candidates = await vectorStore.similaritySearch(question, 60);
-    const docs = candidates.filter((d) => d.metadata?.documentId === documentId).slice(0, 6);
-    const sources = docs.map((d) => ({ content: d.pageContent.slice(0, 300), metadata: d.metadata }));
+    const context = candidates
+      .filter((doc) => doc.metadata?.documentId === documentId)
+      .slice(0, 6);
 
-    const verifiedFacts = await extractVerifiedFacts(question, docs);
-    if (!verifiedFacts) {
-      yield { chunk: "I couldn't find that information in your lease documents." };
+    if (context.length === 0) {
+      yield { chunk: "I couldn't find relevant content in that document for your question." };
       yield { done: true, sources: [] };
       return;
     }
 
-    const stream = await ANSWER_PROMPT.pipe(llm).stream({ ...sharedArgs, verified_facts: verifiedFacts });
+    const sources = context.map((doc) => ({
+      content: doc.pageContent.slice(0, 300),
+      metadata: doc.metadata,
+    }));
+
+    const stream = await documentChain.stream({ input: question, context, chat_history, max_words: maxWords });
     for await (const chunk of stream) {
-      const text = chunkText(chunk);
+      const text = typeof chunk === 'string' ? chunk : (chunk?.content ?? '');
       if (text) yield { chunk: text };
     }
     yield { done: true, sources };
@@ -214,23 +198,22 @@ async function* streamQueryDocuments(question, documentId = null, history = [], 
     rephrasePrompt: CONTEXTUALIZE_PROMPT,
   });
 
-  // Step 1: retrieve
-  const docs = await historyAwareRetriever.invoke({ input: question, chat_history });
-  const sources = docs.map((d) => ({ content: d.pageContent.slice(0, 300), metadata: d.metadata }));
+  const retrievalChain = await createRetrievalChain({
+    retriever: historyAwareRetriever,
+    combineDocsChain: documentChain,
+  });
 
-  // Step 2: verify (must complete before streaming — gatekeeper step)
-  const verifiedFacts = await extractVerifiedFacts(question, docs);
-  if (!verifiedFacts) {
-    yield { chunk: "I couldn't find that information in your lease documents." };
-    yield { done: true, sources: [] };
-    return;
-  }
+  let sources = [];
+  const stream = await retrievalChain.stream({ input: question, chat_history, max_words: maxWords });
 
-  // Step 3: stream answer
-  const stream = await ANSWER_PROMPT.pipe(llm).stream({ ...sharedArgs, verified_facts: verifiedFacts });
-  for await (const chunk of stream) {
-    const text = chunkText(chunk);
-    if (text) yield { chunk: text };
+  for await (const streamChunk of stream) {
+    if (streamChunk.context) {
+      sources = streamChunk.context.map((doc) => ({
+        content: doc.pageContent.slice(0, 300),
+        metadata: doc.metadata,
+      }));
+    }
+    if (streamChunk.answer) yield { chunk: streamChunk.answer };
   }
 
   yield { done: true, sources };
