@@ -25,6 +25,7 @@ const chatSlice = createSlice({
     messages: [],
     sessionId: null,
     loading: false,
+    streaming: false,
     error: null,
   },
   reducers: {
@@ -32,6 +33,37 @@ const chatSlice = createSlice({
       state.messages = [];
       state.sessionId = null;
       state.error = null;
+      state.streaming = false;
+    },
+    streamingStart(state, { payload: { question, documentId } }) {
+      state.loading = true;
+      state.streaming = true;
+      state.error = null;
+      state.messages.push(
+        { role: 'user', content: question, documentId: documentId || null, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: '', sources: [], streaming: true, timestamp: new Date().toISOString() }
+      );
+    },
+    streamingChunk(state, { payload: chunk }) {
+      const last = state.messages[state.messages.length - 1];
+      if (last?.role === 'assistant') last.content += chunk;
+    },
+    streamingDone(state, { payload: { sources, sessionId } }) {
+      state.loading = false;
+      state.streaming = false;
+      if (sessionId) state.sessionId = sessionId;
+      const last = state.messages[state.messages.length - 1];
+      if (last?.role === 'assistant') {
+        last.sources = sources;
+        last.streaming = false;
+      }
+    },
+    streamingError(state, { payload }) {
+      state.loading = false;
+      state.streaming = false;
+      state.error = payload;
+      if (state.messages.at(-1)?.role === 'assistant') state.messages.pop();
+      if (state.messages.at(-1)?.role === 'user') state.messages.pop();
     },
   },
   extraReducers: (builder) => {
@@ -68,5 +100,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { clearChat } = chatSlice.actions;
+export const { clearChat, streamingStart, streamingChunk, streamingDone, streamingError } = chatSlice.actions;
 export default chatSlice.reducer;

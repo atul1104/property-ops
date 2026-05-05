@@ -25,7 +25,20 @@ export default function ChatMessage({ message }) {
               : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm'
           }`}
         >
-          {message.content}
+          {!isUser && message.streaming && message.content === '' ? (
+            <span className="flex gap-1 items-center h-4">
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+            </span>
+          ) : (
+            <>
+              {message.content}
+              {!isUser && message.streaming && (
+                <span className="inline-block w-0.5 h-3.5 bg-gray-500 ml-0.5 align-middle animate-pulse" />
+              )}
+            </>
+          )}
         </div>
 
         {/* Sources accordion (assistant only) */}

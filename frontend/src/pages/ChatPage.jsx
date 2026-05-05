@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { sendMessage, clearChat } from '../store/slices/chatSlice';
+import { clearChat, streamingStart, streamingChunk, streamingDone, streamingError } from '../store/slices/chatSlice';
 import { fetchDocuments } from '../store/slices/documentSlice';
 import { toast } from 'react-hot-toast';
 import ChatMessage from '../components/ChatMessage';
@@ -15,11 +15,11 @@ const SUGGESTED = [
 
 export default function ChatPage() {
   const dispatch = useDispatch();
-  const { messages, loading, sessionId } = useSelector((s) => s.chat);
+  const { messages, loading, streaming, sessionId } = useSelector((s) => s.chat);
   const { items: docs } = useSelector((s) => s.documents);
   const [input, setInput] = useState('');
   const [selectedDocId, setSelectedDocId] = useState('');
-  const bottomRef = useRef(null);
+const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
   const vectorizedDocs = docs.filter((d) => d.vectorized);
@@ -35,14 +35,57 @@ export default function ChatPage() {
     if (!q || loading) return;
     setInput('');
 
-    const result = await dispatch(sendMessage({
-      question: q,
-      sessionId,
-      documentId: selectedDocId || undefined,
-    }));
-    if (sendMessage.rejected.match(result)) {
-      toast.error(result.payload || 'Chat failed');
+    dispatch(streamingStart({ question: q, documentId: selectedDocId || null }));
+
+    const baseUrl = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/api`
+      : '/api';
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch(`${baseUrl}/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          question: q,
+          sessionId,
+          documentId: selectedDocId || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Stream request failed');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.error) throw new Error(data.error);
+          if (data.chunk) dispatch(streamingChunk(data.chunk));
+          if (data.done) dispatch(streamingDone({ sources: data.sources, sessionId: data.sessionId }));
+        }
+      }
+    } catch (err) {
+      dispatch(streamingError(err.message || 'Stream failed'));
+      toast.error(err.message || 'Stream failed');
     }
+
     inputRef.current?.focus();
   };
 
@@ -138,7 +181,7 @@ export default function ChatPage() {
           messages.map((msg, i) => <ChatMessage key={i} message={msg} />)
         )}
 
-        {loading && (
+        {loading && !streaming && (
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
               <Loader2 size={14} className="text-white animate-spin" />

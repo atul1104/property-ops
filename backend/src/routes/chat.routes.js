@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { authenticate } = require('../middleware/auth.middleware');
-const { chat, getChatHistory } = require('../controllers/chat.controller');
+const { chat, getChatHistory, chatStream } = require('../controllers/chat.controller');
 
 /**
  * @swagger
@@ -50,6 +50,7 @@ const { chat, getChatHistory } = require('../controllers/chat.controller');
  *                   type: string
  */
 router.post('/', authenticate, chat);
+router.post('/stream', authenticate, chatStream);
 
 /**
  * @swagger

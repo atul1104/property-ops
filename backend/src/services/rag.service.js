@@ -143,4 +143,88 @@ const queryDocuments = async (question, documentId = null, history = [], maxWord
   };
 };
 
-module.exports = { queryDocuments };
+// ── Streaming export ──────────────────────────────────────────────────────────
+
+/**
+ * Same as queryDocuments but yields { chunk } events as the LLM generates,
+ * then a final { done, sources } event. Designed for SSE consumption.
+ */
+async function* streamQueryDocuments(question, documentId = null, history = [], maxWords = 200) {
+  const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddings, {
+    url: process.env.QDRANT_URL,
+    apiKey: process.env.QDRANT_API_KEY,
+    collectionName: COLLECTION_NAME,
+  });
+
+  const chat_history = formatHistory(history);
+  const documentChain = await createStuffDocumentsChain({ llm, prompt: RAG_PROMPT });
+
+  // ── Single-document mode ─────────────────────────────────────────────────
+  if (documentId) {
+    const candidates = await vectorStore.similaritySearch(question, 60);
+    const context = candidates
+      .filter((doc) => doc.metadata?.documentId === documentId)
+      .slice(0, 6);
+
+    if (context.length === 0) {
+      yield { chunk: "I couldn't find relevant content in that document for your question." };
+      yield { done: true, sources: [] };
+      return;
+    }
+
+    const sources = context.map((doc) => ({
+      content: doc.pageContent.slice(0, 300),
+      metadata: doc.metadata,
+    }));
+
+    const stream = await documentChain.stream({ input: question, context, chat_history, max_words: maxWords });
+    for await (const chunk of stream) {
+      const text = typeof chunk === 'string' ? chunk : (chunk?.content ?? '');
+      if (text) yield { chunk: text };
+    }
+    yield { done: true, sources };
+    return;
+  }
+
+  // ── All-documents mode ────────────────────────────────────────────────────
+  const mmrRetriever = vectorStore.asRetriever({
+    searchType: 'mmr',
+    searchKwargs: { fetchK: 20, lambda: 0.6 },
+    k: 6,
+  });
+
+  const multiQueryRetriever = MultiQueryRetriever.fromLLM({
+    llm,
+    retriever: mmrRetriever,
+    queryCount: 3,
+    verbose: false,
+  });
+
+  const historyAwareRetriever = await createHistoryAwareRetriever({
+    llm,
+    retriever: multiQueryRetriever,
+    rephrasePrompt: CONTEXTUALIZE_PROMPT,
+  });
+
+  const retrievalChain = await createRetrievalChain({
+    retriever: historyAwareRetriever,
+    combineDocsChain: documentChain,
+  });
+
+  let sources = [];
+  const stream = await retrievalChain.stream({ input: question, chat_history, max_words: maxWords });
+
+  for await (const streamChunk of stream) {
+    if (streamChunk.context) {
+      sources = streamChunk.context.map((doc) => ({
+        content: doc.pageContent.slice(0, 300),
+        metadata: doc.metadata,
+      }));
+    }
+    if (streamChunk.answer) yield { chunk: streamChunk.answer };
+  }
+
+  yield { done: true, sources };
+}
+
+module.exports = { queryDocuments, streamQueryDocuments };
