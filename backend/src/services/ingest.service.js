@@ -1,4 +1,4 @@
-const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
+const { SemanticChunker } = require('@langchain/textsplitters');
 const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
 const { QdrantVectorStore } = require('@langchain/qdrant');
 
@@ -22,10 +22,9 @@ const ingestDocument = async (pdfBuffer, documentId, filename) => {
     throw new Error('PDF appears to be empty or image-only (no extractable text)');
   }
 
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,  // wide enough to capture full lease clauses
-    chunkOverlap: 200, // generous overlap so clause boundaries aren't lost
-    separators: ['\n\n', '\n', '. ', ' ', ''], // prefer paragraph → sentence breaks
+  const splitter = new SemanticChunker(embeddings, {
+    breakpointThresholdType: 'percentile',
+    breakpointThresholdAmount: 95,
   });
 
   const docs = await splitter.createDocuments(
