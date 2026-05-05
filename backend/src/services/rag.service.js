@@ -58,6 +58,41 @@ const formatHistory = (history = []) =>
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => (m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content)));
 
+const COMPLEX_MARKERS = [' and ', 'also', 'additionally', 'compare', 'difference', 'versus', ' vs ', 'what if'];
+
+/** True when the question is multi-part or likely needs query expansion */
+const isComplexQuestion = (question) => {
+  if (question.trim().split(/\s+/).length >= 10) return true;
+  const lower = question.toLowerCase();
+  return COMPLEX_MARKERS.some((m) => lower.includes(m));
+};
+
+/**
+ * Returns an appropriately configured retriever:
+ *   - Simple questions → plain MMR retriever (k=3, no extra LLM call)
+ *   - Complex questions → MultiQueryRetriever wrapping MMR (k=6, 3 query variants)
+ */
+const buildRetriever = (vectorStore, question) => {
+  const complex = isComplexQuestion(question);
+  const k = complex ? 6 : 3;
+  const fetchK = complex ? 20 : 10;
+
+  const mmrRetriever = vectorStore.asRetriever({
+    searchType: 'mmr',
+    searchKwargs: { fetchK, lambda: 0.6 },
+    k,
+  });
+
+  if (!complex) return mmrRetriever;
+
+  return MultiQueryRetriever.fromLLM({
+    llm,
+    retriever: mmrRetriever,
+    queryCount: 3,
+    verbose: false,
+  });
+};
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
@@ -108,22 +143,9 @@ const queryDocuments = async (question, documentId = null, history = [], maxWord
 
   // ── All-documents mode ────────────────────────────────────────────────────
 
-  const mmrRetriever = vectorStore.asRetriever({
-    searchType: 'mmr',
-    searchKwargs: { fetchK: 20, lambda: 0.6 },
-    k: 6,
-  });
-
-  const multiQueryRetriever = MultiQueryRetriever.fromLLM({
-    llm,
-    retriever: mmrRetriever,
-    queryCount: 3,
-    verbose: false,
-  });
-
   const historyAwareRetriever = await createHistoryAwareRetriever({
     llm,
-    retriever: multiQueryRetriever,
+    retriever: buildRetriever(vectorStore, question),
     rephrasePrompt: CONTEXTUALIZE_PROMPT,
   });
 
@@ -187,22 +209,10 @@ async function* streamQueryDocuments(question, documentId = null, history = [], 
   }
 
   // ── All-documents mode ────────────────────────────────────────────────────
-  const mmrRetriever = vectorStore.asRetriever({
-    searchType: 'mmr',
-    searchKwargs: { fetchK: 20, lambda: 0.6 },
-    k: 6,
-  });
-
-  const multiQueryRetriever = MultiQueryRetriever.fromLLM({
-    llm,
-    retriever: mmrRetriever,
-    queryCount: 3,
-    verbose: false,
-  });
 
   const historyAwareRetriever = await createHistoryAwareRetriever({
     llm,
-    retriever: multiQueryRetriever,
+    retriever: buildRetriever(vectorStore, question),
     rephrasePrompt: CONTEXTUALIZE_PROMPT,
   });
 
