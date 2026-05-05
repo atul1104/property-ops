@@ -24,13 +24,22 @@ const ingestDocument = async (pdfBuffer, documentId, filename) => {
 
   const splitter = new SemanticChunker(embeddings, {
     breakpointThresholdType: 'percentile',
-    breakpointThresholdAmount: 95,
+    breakpointThresholdAmount: 90,
   });
 
-  const docs = await splitter.createDocuments(
-    [parsed.text],
-    [{ documentId, filename, pageCount: parsed.numpages }]
-  );
+  const metadata = { documentId, filename, pageCount: parsed.numpages };
+
+  // Pre-split by structural markers so SemanticChunker embeds fewer sentences per pass
+  const blocks = parsed.text
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter((b) => b.length >= 80);
+
+  const docs = [];
+  for (const block of blocks) {
+    const blockDocs = await splitter.createDocuments([block], [metadata]);
+    docs.push(...blockDocs);
+  }
 
   await QdrantVectorStore.fromDocuments(docs, embeddings, {
     url: process.env.QDRANT_URL,
