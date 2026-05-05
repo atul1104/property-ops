@@ -4,6 +4,13 @@ const { queryDocuments } = require('../services/rag.service');
 const sessionHistory = new Map();
 const MAX_HISTORY = 50;
 
+// RAG response cache — keyed by (documentId + question), TTL of 1 hour
+const ragCache = new Map();
+const CACHE_TTL_MS = 60 * 60 * 1000;
+
+const getCacheKey = (question, documentId) =>
+  `${documentId || 'all'}::${question.toLowerCase().trim()}`;
+
 const chat = async (req, res) => {
   const { question, sessionId, documentId, maxWords } = req.body;
 
@@ -18,7 +25,17 @@ const chat = async (req, res) => {
   const recentHistory = history.slice(-10);
 
   const wordLimit = Number.isInteger(maxWords) && maxWords > 0 ? maxWords : 200;
-  const { answer, sources } = await queryDocuments(question.trim(), documentId || null, recentHistory, wordLimit);
+
+  const cacheKey = getCacheKey(question.trim(), documentId || null);
+  const cached = ragCache.get(cacheKey);
+  let answer, sources;
+
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    ({ answer, sources } = cached);
+  } else {
+    ({ answer, sources } = await queryDocuments(question.trim(), documentId || null, recentHistory, wordLimit));
+    ragCache.set(cacheKey, { answer, sources, ts: Date.now() });
+  }
   history.push(
     { role: 'user', content: question.trim(), documentId: documentId || null, timestamp: new Date().toISOString() },
     { role: 'assistant', content: answer, sources, timestamp: new Date().toISOString() }
