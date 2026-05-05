@@ -214,7 +214,7 @@ export default function ChatPage() {
           className="input flex-1 resize-none h-12 py-3 leading-normal"
           placeholder={
             selectedDoc
-              ? `Ask about "${shortName}"… (Enter to send)`
+              ? `Ask about "${shortName}" (Enter to send)`
               : 'Ask about your lease… (Enter to send)'
           }
           value={input}
