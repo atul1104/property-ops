@@ -35,11 +35,13 @@ Do NOT answer it — only rephrase if needed, otherwise return it unchanged.`,
   ['human', '{input}'],
 ]);
 
-// Final answer prompt
+// Final answer prompt — {max_words} is injected at call time
 const RAG_PROMPT = ChatPromptTemplate.fromMessages([
   [
     'system',
     `You are a helpful property management assistant. Use only the lease document excerpts below to answer the tenant's question precisely. Cite relevant clause numbers or section headings when visible. If the answer is not in the context, say "I couldn't find that information in your lease documents."
+
+Keep your answer under {max_words} words. If the full answer would exceed that, summarize the key points clearly without omitting critical facts or changing the meaning.
 
 Context:
 {context}`,
@@ -65,11 +67,12 @@ const formatHistory = (history = []) =>
  *   - MMR (diverse, non-redundant chunks)
  *   - Optional single-document filter (client-side)
  *
- * @param {string}   question
+ * @param {string}      question
  * @param {string|null} documentId  — restrict search to one document
- * @param {Array}    history        — [{role, content}] conversation so far
+ * @param {Array}       history     — [{role, content}] conversation so far
+ * @param {number}      maxWords    — soft word limit for the answer (default 150)
  */
-const queryDocuments = async (question, documentId = null, history = []) => {
+const queryDocuments = async (question, documentId = null, history = [], maxWords = 200) => {
   const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddings, {
     url: process.env.QDRANT_URL,
     apiKey: process.env.QDRANT_API_KEY,
@@ -81,7 +84,6 @@ const queryDocuments = async (question, documentId = null, history = []) => {
 
   // ── Single-document mode ─────────────────────────────────────────────────
   if (documentId) {
-    // Fetch wide candidate set, filter client-side (avoids Qdrant Query API filter issues)
     const candidates = await vectorStore.similaritySearch(question, 60);
     const context = candidates
       .filter((doc) => doc.metadata?.documentId === documentId)
@@ -94,7 +96,7 @@ const queryDocuments = async (question, documentId = null, history = []) => {
       };
     }
 
-    const answer = await documentChain.invoke({ input: question, context, chat_history });
+    const answer = await documentChain.invoke({ input: question, context, chat_history, max_words: maxWords });
     return {
       answer,
       sources: context.map((doc) => ({
@@ -106,14 +108,12 @@ const queryDocuments = async (question, documentId = null, history = []) => {
 
   // ── All-documents mode ────────────────────────────────────────────────────
 
-  // MMR base retriever — diversity over pure similarity
   const mmrRetriever = vectorStore.asRetriever({
     searchType: 'mmr',
-    searchKwargs: { fetchK: 20, lambda: 0.6 }, // lambda: 0=max diversity, 1=max similarity
+    searchKwargs: { fetchK: 20, lambda: 0.6 },
     k: 6,
   });
 
-  // Multi-query wraps MMR: generates 3 query variants, retrieves for each, unions results
   const multiQueryRetriever = MultiQueryRetriever.fromLLM({
     llm,
     retriever: mmrRetriever,
@@ -121,7 +121,6 @@ const queryDocuments = async (question, documentId = null, history = []) => {
     verbose: false,
   });
 
-  // History-aware retriever: rewrites follow-up questions before hitting Qdrant
   const historyAwareRetriever = await createHistoryAwareRetriever({
     llm,
     retriever: multiQueryRetriever,
@@ -133,7 +132,7 @@ const queryDocuments = async (question, documentId = null, history = []) => {
     combineDocsChain: documentChain,
   });
 
-  const result = await retrievalChain.invoke({ input: question, chat_history });
+  const result = await retrievalChain.invoke({ input: question, chat_history, max_words: maxWords });
 
   return {
     answer: result.answer,

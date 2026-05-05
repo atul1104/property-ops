@@ -5,7 +5,7 @@ const sessionHistory = new Map();
 const MAX_HISTORY = 50;
 
 const chat = async (req, res) => {
-  const { question, sessionId, documentId } = req.body;
+  const { question, sessionId, documentId, maxWords } = req.body;
 
   if (!question?.trim()) {
     return res.status(400).json({ error: 'question is required' });
@@ -17,7 +17,8 @@ const chat = async (req, res) => {
   const history = sessionHistory.get(sid) || [];
   const recentHistory = history.slice(-10);
 
-  const { answer, sources } = await queryDocuments(question.trim(), documentId || null, recentHistory);
+  const wordLimit = Number.isInteger(maxWords) && maxWords > 0 ? maxWords : 200;
+  const { answer, sources } = await queryDocuments(question.trim(), documentId || null, recentHistory, wordLimit);
   history.push(
     { role: 'user', content: question.trim(), documentId: documentId || null, timestamp: new Date().toISOString() },
     { role: 'assistant', content: answer, sources, timestamp: new Date().toISOString() }
