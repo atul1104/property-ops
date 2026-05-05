@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { clearChat, streamingStart, streamingChunk, streamingDone, streamingError } from '../store/slices/chatSlice';
+import { clearChat, streamingStart, streamingChunk, streamingDone, streamingStop, streamingError } from '../store/slices/chatSlice';
 import { fetchDocuments } from '../store/slices/documentSlice';
 import { toast } from 'react-hot-toast';
 import ChatMessage from '../components/ChatMessage';
-import { Send, Loader2, MessageSquare, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { Send, Square, Loader2, MessageSquare, Trash2, AlertTriangle, FileText } from 'lucide-react';
 
 const SUGGESTED = [
   'What is the pet policy in my lease?',
@@ -224,12 +224,19 @@ export default function ChatPage() {
           rows={1}
         />
         <button
-          onClick={() => handleSend()}
-          disabled={!input.trim() || loading}
+          onClick={() => {
+            if (streaming) {
+              abortRef.current?.abort();
+              dispatch(streamingStop());
+            } else {
+              handleSend();
+            }
+          }}
+          disabled={!streaming && (!input.trim() || loading)}
           className="btn-primary px-4 self-end h-12"
-          title="Send"
+          title={streaming ? 'Stop' : 'Send'}
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          {streaming ? <Square size={16} fill="currentColor" /> : loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </div>
     </div>

@@ -59,6 +59,12 @@ const chatSlice = createSlice({
         last.streaming = false;
       }
     },
+    streamingStop(state) {
+      state.loading = false;
+      state.streaming = false;
+      const last = state.messages[state.messages.length - 1];
+      if (last?.role === 'assistant') last.streaming = false;
+    },
     streamingError(state, { payload }) {
       state.loading = false;
       state.streaming = false;
@@ -101,5 +107,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { clearChat, streamingStart, streamingChunk, streamingDone, streamingError } = chatSlice.actions;
+export const { clearChat, streamingStart, streamingChunk, streamingDone, streamingStop, streamingError } = chatSlice.actions;
 export default chatSlice.reducer;
