@@ -5,7 +5,7 @@ import { fetchDocuments } from '../store/slices/documentSlice';
 import { Link } from 'react-router-dom';
 import { Ticket, MessageSquare, FileText, TrendingUp, AlertCircle } from 'lucide-react';
 
-const StatCard = ({ label, value, icon: Icon, color, to }) => (
+const StatCard = ({ label, value, icon: Icon, color, to, loading }) => (
   <Link
     to={to}
     className="card hover:shadow-md transition-shadow flex items-center gap-4 group"
@@ -14,7 +14,11 @@ const StatCard = ({ label, value, icon: Icon, color, to }) => (
       <Icon size={22} className="text-white" />
     </div>
     <div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      {loading ? (
+        <div className="h-8 w-10 bg-gray-200 rounded animate-pulse mb-1" />
+      ) : (
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      )}
       <p className="text-sm text-gray-500">{label}</p>
     </div>
     <span className="ml-auto text-gray-300 group-hover:text-brand-500 transition-colors">→</span>
@@ -23,8 +27,8 @@ const StatCard = ({ label, value, icon: Icon, color, to }) => (
 
 export default function DashboardPage() {
   const dispatch = useDispatch();
-  const { items: tickets } = useSelector((s) => s.tickets);
-  const { items: docs } = useSelector((s) => s.documents);
+  const { items: tickets, loading: ticketsLoading } = useSelector((s) => s.tickets);
+  const { items: docs, loading: docsLoading } = useSelector((s) => s.documents);
   const { role, email } = useSelector((s) => s.auth);
 
   useEffect(() => {
@@ -51,10 +55,10 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Tickets" value={tickets.length} icon={Ticket} color="bg-brand-600" to="/tickets" />
-        <StatCard label="Open Tickets" value={openTickets} icon={TrendingUp} color="bg-blue-500" to="/tickets" />
-        <StatCard label="Urgent Issues" value={urgentTickets} icon={AlertCircle} color="bg-red-500" to="/tickets" />
-        <StatCard label="Lease Documents" value={vectorizedDocs} icon={FileText} color="bg-green-500" to="/chat" />
+        <StatCard label="Total Tickets" value={tickets.length} icon={Ticket} color="bg-brand-600" to="/tickets" loading={ticketsLoading} />
+        <StatCard label="Open Tickets" value={openTickets} icon={TrendingUp} color="bg-blue-500" to="/tickets" loading={ticketsLoading} />
+        <StatCard label="Urgent Issues" value={urgentTickets} icon={AlertCircle} color="bg-red-500" to="/tickets" loading={ticketsLoading} />
+        <StatCard label="Lease Documents" value={vectorizedDocs} icon={FileText} color="bg-green-500" to="/chat" loading={docsLoading} />
       </div>
 
       {/* Quick actions */}

@@ -9,6 +9,7 @@ export default function DocumentUpload() {
   const { items: docs, uploading, loading } = useSelector((s) => s.documents);
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') {
@@ -30,7 +31,9 @@ export default function DocumentUpload() {
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`Delete "${doc.filename}"? This will remove it from storage and AI search.`)) return;
+    setDeletingId(doc.id);
     const result = await dispatch(deleteDocument(doc.id));
+    setDeletingId(null);
     if (deleteDocument.fulfilled.match(result)) {
       toast.success('Document deleted');
     } else {
@@ -100,10 +103,11 @@ export default function DocumentUpload() {
               )}
               <button
                 onClick={() => handleDelete(doc)}
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                disabled={deletingId === doc.id}
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none"
                 title="Delete document"
               >
-                <Trash2 size={14} />
+                {deletingId === doc.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               </button>
             </li>
           ))}

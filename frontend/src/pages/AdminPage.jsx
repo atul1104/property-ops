@@ -28,6 +28,7 @@ export default function AdminPage() {
   const { items: tickets, loading } = useSelector((s) => s.tickets);
   const [tab, setTab] = useState('tickets');
   const [updating, setUpdating] = useState(null);
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
     dispatch(fetchTickets());
@@ -59,7 +60,9 @@ export default function AdminPage() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Permanently delete this ticket?')) return;
+    setDeleting(id);
     const result = await dispatch(deleteTicket(id));
+    setDeleting(null);
     if (deleteTicket.fulfilled.match(result)) {
       toast.success('Ticket deleted');
     } else {
@@ -197,10 +200,11 @@ export default function AdminPage() {
                             </button> */}
                             <button
                               onClick={() => handleDelete(ticket.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              disabled={deleting === ticket.id}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none"
                               title="Delete ticket"
                             >
-                              <Trash2 size={14} />
+                              {deleting === ticket.id ? <Loader2 size={14} className="animate-spin text-red-400" /> : <Trash2 size={14} />}
                             </button>
                           </div>
                         </td>
