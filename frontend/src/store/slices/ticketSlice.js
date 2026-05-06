@@ -56,8 +56,9 @@ const ticketSlice = createSlice({
       .addCase(fetchTickets.fulfilled, (state, { payload }) => { state.loading = false; state.items = payload; })
       .addCase(fetchTickets.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
 
-      .addCase(createTicket.fulfilled, (state, { payload }) => { state.items.unshift(payload); })
-      .addCase(createTicket.rejected, (state, { payload }) => { state.error = payload; })
+      .addCase(createTicket.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(createTicket.fulfilled, (state, { payload }) => { state.loading = false; state.items.unshift(payload); })
+      .addCase(createTicket.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
 
       .addCase(updateTicket.fulfilled, (state, { payload }) => {
         const idx = state.items.findIndex((t) => t.id === payload.id);
