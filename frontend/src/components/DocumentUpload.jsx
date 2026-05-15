@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { uploadDocument, deleteDocument } from '../store/slices/documentSlice';
+import { uploadDocument, deleteDocument, fetchDocuments } from '../store/slices/documentSlice';
 import { toast } from 'react-hot-toast';
 import { Upload, FileText, Loader2, CheckCircle2, Clock, Trash2 } from 'lucide-react';
 
@@ -10,6 +10,14 @@ export default function DocumentUpload() {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  // Poll every 3 s while any document is still being processed
+  useEffect(() => {
+    const hasPending = docs.some((d) => !d.vectorized);
+    if (!hasPending) return;
+    const interval = setInterval(() => dispatch(fetchDocuments()), 3000);
+    return () => clearInterval(interval);
+  }, [docs, dispatch]);
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') {
