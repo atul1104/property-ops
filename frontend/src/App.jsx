@@ -12,7 +12,7 @@ const PrivateRoute = ({ children, adminOnly = false }) => {
   const { token, role } = useSelector((s) => s.auth);
   if (!token) return <Navigate to="/login" replace />;
   if (adminOnly && role !== 'ADMIN') return <Navigate to="/dashboard" replace />;
-  return children;
+  return <div className="animate-fade-in">{children}</div>;
 };
 
 export default function App() {

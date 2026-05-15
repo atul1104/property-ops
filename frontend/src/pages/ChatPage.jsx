@@ -4,7 +4,7 @@ import { clearChat, streamingStart, streamingChunk, streamingDone, streamingStop
 import { fetchDocuments } from '../store/slices/documentSlice';
 import { toast } from 'react-hot-toast';
 import ChatMessage from '../components/ChatMessage';
-import { Send, Square, Loader2, MessageSquare, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { Send, Square, Loader2, MessageSquare, Trash2, AlertTriangle, FileText, HelpCircle } from 'lucide-react';
 
 const SUGGESTED = [
   'What is the pet policy in my lease?',
@@ -166,7 +166,7 @@ export default function ChatPage() {
       )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
+      <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1 chat-scroll">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-4">
             <MessageSquare size={48} strokeWidth={1} />
@@ -181,8 +181,9 @@ export default function ChatPage() {
                 <button
                   key={s}
                   onClick={() => handleSend(s)}
-                  className="px-3 py-2.5 text-left text-sm bg-white border border-gray-200 rounded-xl hover:border-brand-400 hover:bg-brand-50 transition-colors text-gray-600"
+                  className="flex items-start gap-2 px-3 py-2.5 text-left text-sm bg-white border border-gray-200 rounded-xl hover:border-brand-400 hover:bg-brand-50 hover:-translate-y-0.5 transition-all text-gray-600"
                 >
+                  <HelpCircle size={14} className="shrink-0 text-brand-400 mt-0.5" />
                   {s}
                 </button>
               ))}

@@ -1,4 +1,4 @@
-import { Building2, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 
 export default function ChatMessage({ message }) {
@@ -9,11 +9,13 @@ export default function ChatMessage({ message }) {
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
       <div
-        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
-          isUser ? 'bg-brand-600' : 'bg-gray-700'
+        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm shadow-sm ${
+          isUser
+            ? 'bg-gradient-to-br from-brand-500 to-brand-700'
+            : 'bg-gradient-to-br from-violet-500 to-purple-700'
         }`}
       >
-        {isUser ? <User size={15} /> : <Building2 size={15} />}
+        {isUser ? <User size={15} /> : <Sparkles size={15} />}
       </div>
 
       {/* Bubble */}

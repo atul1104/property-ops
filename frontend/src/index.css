@@ -11,6 +11,18 @@
   }
 }
 
+/* Auth page subtle dot pattern */
+.auth-bg {
+  background-image: radial-gradient(circle, #c7d2fe 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Thin scrollbar for chat messages */
+.chat-scroll::-webkit-scrollbar { width: 4px; }
+.chat-scroll::-webkit-scrollbar-track { background: transparent; }
+.chat-scroll::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 2px; }
+.chat-scroll::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg
@@ -30,7 +42,7 @@
   .input {
     @apply w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
            focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
-           placeholder-gray-400 transition;
+           placeholder-gray-400 transition focus:scale-[1.01];
   }
   .card {
     @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5;
