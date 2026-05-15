@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { createTicket } from '../store/slices/ticketSlice';
 import { toast } from 'react-hot-toast';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Sparkles } from 'lucide-react';
 
 export default function TicketForm({ onClose }) {
   const dispatch = useDispatch();
@@ -40,7 +40,12 @@ export default function TicketForm({ onClose }) {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">Description</label>
+          <span className={`text-xs tabular-nums ${form.description.length > 900 ? 'text-red-500' : 'text-gray-400'}`}>
+            {form.description.length} / 1000
+          </span>
+        </div>
         <textarea
           className="input h-28 resize-none"
           placeholder="Describe the issue in detail — location, severity, how long it's been happening..."
@@ -50,9 +55,12 @@ export default function TicketForm({ onClose }) {
           required
         />
       </div>
-      <p className="text-xs text-gray-400">
-        Our AI will automatically assign a priority and category tag.
-      </p>
+
+      <div className="flex items-start gap-2 p-3 bg-brand-50 border border-brand-100 rounded-lg">
+        <Sparkles size={14} className="text-brand-500 mt-0.5 shrink-0" />
+        <p className="text-xs text-brand-700">Our AI will automatically assign a priority and category tag to your request.</p>
+      </div>
+
       <div className="flex justify-end gap-2">
         {onClose && (
           <button type="button" onClick={onClose} className="btn-secondary">

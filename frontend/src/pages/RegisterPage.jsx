@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { registerUser, clearError } from '../store/slices/authSlice';
@@ -10,6 +10,8 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const { loading, error } = useSelector((s) => s.auth);
   const [form, setForm] = useState({ email: '', password: '', role: 'TENANT' });
+
+  useEffect(() => { document.title = 'Create Account | Property Ops AI'; }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

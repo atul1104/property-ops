@@ -51,6 +51,7 @@ export default function DashboardPage() {
   useEffect(() => {
     dispatch(fetchTickets());
     dispatch(fetchDocuments());
+    document.title = 'Dashboard | Property Ops AI';
   }, [dispatch]);
 
   const openTickets = tickets.filter((t) => t.status === 'OPEN').length;

@@ -25,7 +25,10 @@ export default function ChatPage() {
 
   const vectorizedDocs = docs.filter((d) => d.vectorized);
 
-  useEffect(() => { dispatch(fetchDocuments()); }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchDocuments());
+    document.title = 'Lease AI Chat | Property Ops AI';
+  }, [dispatch]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
