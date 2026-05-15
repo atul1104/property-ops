@@ -5,6 +5,7 @@ export const loginUser = createAsyncThunk('auth/login', async (credentials, { re
   try {
     const { data } = await api.post('/auth/login', credentials);
     localStorage.setItem('token', data.token);
+    localStorage.setItem('email', data.email);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.error || 'Login failed');
@@ -15,6 +16,7 @@ export const registerUser = createAsyncThunk('auth/register', async (payload, { 
   try {
     const { data } = await api.post('/auth/register', payload);
     localStorage.setItem('token', data.token);
+    localStorage.setItem('email', data.email);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.error || 'Registration failed');
@@ -22,6 +24,7 @@ export const registerUser = createAsyncThunk('auth/register', async (payload, { 
 });
 
 const token = localStorage.getItem('token');
+const storedEmail = localStorage.getItem('email');
 
 // Decode role from stored token without adding a jwt library
 const decodeRole = (t) => {
@@ -37,13 +40,14 @@ const authSlice = createSlice({
   initialState: {
     token: token || null,
     role: token ? decodeRole(token) : null,
-    email: null,
+    email: storedEmail || null,
     loading: false,
     error: null,
   },
   reducers: {
     logout(state) {
       localStorage.removeItem('token');
+      localStorage.removeItem('email');
       state.token = null;
       state.role = null;
       state.email = null;

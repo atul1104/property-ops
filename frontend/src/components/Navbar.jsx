@@ -63,7 +63,7 @@ export default function Navbar() {
           {/* User + logout */}
           <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
               title={email}
             >
               {getInitials(email)}
