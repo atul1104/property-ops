@@ -32,7 +32,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Property Ops AI</h1>
           <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
-          <p className="text-xs text-gray-400 mt-2 italic">Smarter property management, powered by AI</p>
+          <p className="text-sm text-gray-500 mt-2 font-medium">Your property, our intelligence</p>
         </div>
 
         <div className="card shadow-md">
