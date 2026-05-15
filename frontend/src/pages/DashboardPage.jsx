@@ -76,7 +76,7 @@ export default function DashboardPage() {
         <StatCard label="Total Tickets"   value={tickets.length} icon={Ticket}       gradient="from-brand-500 to-brand-700" to="/tickets" loading={ticketsLoading} />
         <StatCard label="Open Tickets"    value={openTickets}    icon={TrendingUp}    gradient="from-blue-400 to-blue-600"   to="/tickets" loading={ticketsLoading} />
         <StatCard label="Urgent Issues"   value={urgentTickets}  icon={AlertCircle}   gradient="from-red-400 to-red-600"     to="/tickets" loading={ticketsLoading} />
-        <StatCard label="Lease Documents" value={vectorizedDocs} icon={FileText}      gradient="from-green-400 to-green-600" to="/chat"    loading={docsLoading} />
+        <StatCard label="Lease Documents" value={vectorizedDocs} icon={FileText}      gradient="from-green-400 to-green-600" to={role === 'ADMIN' ? '/admin' : '/chat'} loading={docsLoading} />
       </div>
 
       {/* Quick actions */}
